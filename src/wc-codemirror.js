@@ -9,7 +9,7 @@ self.CodeMirror = CodeMirror
  */
 export class WCCodeMirror extends HTMLElement {
   static get observedAttributes () {
-    return ['src', 'readonly', 'mode', 'theme']
+    return ['src', 'readonly', 'mode', 'theme', 'value']
   }
 
   attributeChangedCallback (name, oldValue, newValue) {
@@ -46,12 +46,7 @@ export class WCCodeMirror extends HTMLElement {
 
   get value () { return this.editor.getValue() }
   set value (value) {
-    if (this.__initialized) {
-      this.setValueForced(value)
-    } else {
-      // Save to pre init
-      this.__preInitValue = value
-    }
+    this.setValueForced(value)
   }
 
   constructor () {
@@ -124,6 +119,12 @@ export class WCCodeMirror extends HTMLElement {
       viewportMargin
     })
 
+    const root = this
+    const editor = this.editor
+    this.editor.on('changes', function () {
+      root.dispatchEvent(new CustomEvent('change', { detail: editor.getValue() }))
+    })
+
     if (this.hasAttribute('src')) {
       this.setSrc()
     }
@@ -132,8 +133,9 @@ export class WCCodeMirror extends HTMLElement {
     await new Promise(resolve => setTimeout(resolve, 50))
     this.__initialized = true
 
-    if (this.__preInitValue !== undefined) {
-      this.setValueForced(this.__preInitValue)
+    const preInitValue = this.getAttribute('value')
+    if (preInitValue) {
+      this.setValueForced(preInitValue)
     }
   }
 
@@ -154,6 +156,9 @@ export class WCCodeMirror extends HTMLElement {
    * Set value without initialization check
    */
   async setValueForced (value) {
+    if (value === this.editor.getValue()) {
+      return
+    }
     this.editor.swapDoc(CodeMirror.Doc(value, this.getAttribute('mode')))
     this.editor.refresh()
   }
